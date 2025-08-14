@@ -1,0 +1,4 @@
+[submodule "schema"]
+    path = schema
+    url = https://github.com/yusk/spajam2025-schema.git
+
