@@ -41,7 +41,8 @@ testuser-create:
 	$(MANAGE) maketestuser
 
 schema-gen:
-	$(MANAGE) generateschema --file schema/schema.yml
+# 	$(MANAGE) generateschema --file schema/schema.yml
+	wget http://localhost:8000/schema.yaml?format=openapi -O schema/schema.yml
 
 # ==== 環境構築 ====
 
