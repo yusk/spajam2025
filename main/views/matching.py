@@ -31,18 +31,20 @@ class MatchingStatusView(APIView):
         active_match = MatchHistory.objects.get_active_match(user)
 
         if active_match:
-            match_data = MatchResultSerializer(
-                active_match, context={"user": user}
-            ).data
-            return JsonResponse({
-                "status": "talking",
-                "match": match_data,
-            })
+            match_data = MatchResultSerializer(active_match, context={"user": user}).data
+            return JsonResponse(
+                {
+                    "status": "talking",
+                    "match": match_data,
+                }
+            )
         else:
-            return JsonResponse({
-                "status": "free",
-                "match": None,
-            })
+            return JsonResponse(
+                {
+                    "status": "free",
+                    "match": None,
+                }
+            )
 
 
 class MatchingCreateView(APIView):
@@ -72,7 +74,6 @@ class MatchingEndView(APIView):
         operation_description="現在のマッチングを終了し、free状態に戻ります。",
         responses={
             200: MatchEndResponseSerializer,
-            404: MatchErrorSerializer,
         },
     )
     def post(self, request):
@@ -80,10 +81,7 @@ class MatchingEndView(APIView):
         active_match = MatchHistory.objects.get_active_match(user)
 
         if not active_match:
-            return JsonResponse(
-                {"error": "No active match to end"},
-                status=404,
-            )
+            return JsonResponse({"message": "Match already ended"})
 
         active_match.end_match()
         return JsonResponse({"message": "Match ended successfully"})
@@ -100,15 +98,15 @@ class MatchingHistoryView(APIView):
         user = request.user
         today = timezone.now().date()
 
-        matches = MatchHistory.objects.filter(
-            event_date=today,
-        ).filter(
-            models.Q(user1=user) | models.Q(user2=user)
-        ).order_by("-matched_at")
+        matches = (
+            MatchHistory.objects.filter(
+                event_date=today,
+            )
+            .filter(models.Q(user1=user) | models.Q(user2=user))
+            .order_by("-matched_at")
+        )
 
-        history_data = MatchHistorySerializer(
-            matches, many=True, context={"user": user}
-        ).data
+        history_data = MatchHistorySerializer(matches, many=True, context={"user": user}).data
 
         return JsonResponse({"history": history_data})
 
@@ -131,24 +129,28 @@ class MatchingDebugSimilarityView(APIView):
             similarity = calculate_cosine_similarity(user_vector, other_vector)
             talk_duration = get_talk_duration(similarity)
 
-            similarities.append({
-                "user_id": str(other_user.id),
-                "user_name": other_user.name,
-                "similarity_score": round(similarity, 4),
-                "similarity_percent": f"{similarity * 100:.1f}%",
-                "talk_duration_seconds": talk_duration,
-                "talk_duration_minutes": round(talk_duration / 60, 1),
-                "languages": list(other_vector.keys()),
-            })
+            similarities.append(
+                {
+                    "user_id": str(other_user.id),
+                    "user_name": other_user.name,
+                    "similarity_score": round(similarity, 4),
+                    "similarity_percent": f"{similarity * 100:.1f}%",
+                    "talk_duration_seconds": talk_duration,
+                    "talk_duration_minutes": round(talk_duration / 60, 1),
+                    "languages": list(other_vector.keys()),
+                }
+            )
 
         # Sort by similarity descending
         similarities.sort(key=lambda x: x["similarity_score"], reverse=True)
 
-        return JsonResponse({
-            "current_user": {
-                "id": str(user.id),
-                "name": user.name,
-                "languages": user_vector,
-            },
-            "similarities": similarities,
-        })
+        return JsonResponse(
+            {
+                "current_user": {
+                    "id": str(user.id),
+                    "name": user.name,
+                    "languages": user_vector,
+                },
+                "similarities": similarities,
+            }
+        )
