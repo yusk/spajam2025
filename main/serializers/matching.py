@@ -25,6 +25,7 @@ class MatchResultSerializer(serializers.ModelSerializer):
     partner = serializers.SerializerMethodField()
     remaining_seconds = serializers.SerializerMethodField()
     matched_languages = serializers.SerializerMethodField()
+    is_host = serializers.SerializerMethodField()
 
     class Meta:
         model = MatchHistory
@@ -36,6 +37,7 @@ class MatchResultSerializer(serializers.ModelSerializer):
             "matched_at",
             "remaining_seconds",
             "matched_languages",
+            "is_host",
         )
 
     @swagger_serializer_method(serializer_or_field=MatchPartnerSerializer)
@@ -59,6 +61,11 @@ class MatchResultSerializer(serializers.ModelSerializer):
         from main.services.matching import get_matched_languages
 
         return get_matched_languages(obj.user1, obj.user2)
+
+    @swagger_serializer_method(serializer_or_field=serializers.BooleanField())
+    def get_is_host(self, obj):
+        user = self.context.get("user")
+        return obj.user1 == user
 
 
 class MatchHistorySerializer(serializers.ModelSerializer):
