@@ -1,16 +1,22 @@
 import re
+from datetime import timedelta
 
 import requests
+from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from main.models import GithubToken, Language
+from main.models import GithubToken, Language, UserRepository
+
 from main.serializers import (
     GitHubLanguagesResponseSerializer,
     GitHubCallbackErrorSerializer,
 )
+
+# Cache duration for repository sync
+REPO_SYNC_CACHE_HOURS = 24
 
 
 def fetch_all_repos(access_token):
@@ -68,23 +74,34 @@ class UserGitHubLanguagesView(APIView):
 
         access_token = github_token.access_token
 
-        # Fetch all repositories with pagination
-        repos, error = fetch_all_repos(access_token)
-        if error:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if we need to sync (cache for 24 hours)
+        last_synced = user.repositories.order_by("-synced_at").values_list("synced_at", flat=True).first()
+        needs_sync = (
+            last_synced is None
+            or last_synced < timezone.now() - timedelta(hours=REPO_SYNC_CACHE_HOURS)
+        )
 
-        # Aggregate language count from repo's primary language
+        if needs_sync:
+            # Fetch all repositories with pagination
+            repos, error = fetch_all_repos(access_token)
+            if error:
+                return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Sync repositories to database
+            UserRepository.sync_from_github(user, repos, Language)
+
+        # Aggregate language count from saved repositories
         language_count = {}
-        for repo in repos:
-            language = repo.get("language")
-            if language:
-                language_count[language] = language_count.get(language, 0) + 1
+        for repo in user.repositories.select_related("language").all():
+            if repo.language:
+                lang_name = repo.language.name
+                language_count[lang_name] = language_count.get(lang_name, 0) + 1
 
-        # Build response with Language model
+        # Build response
         total_repos = sum(language_count.values())
         languages = []
         for lang_name, count in sorted(language_count.items(), key=lambda x: x[1], reverse=True):
-            language = Language.get_or_create_from_github(lang_name)
+            language = Language.objects.get(name=lang_name)
             percentage = (count / total_repos * 100) if total_repos > 0 else 0
             languages.append({
                 "name": language.name,
@@ -94,6 +111,6 @@ class UserGitHubLanguagesView(APIView):
             })
 
         return Response({
-            "total_repos": len(repos),
+            "total_repos": user.repositories.count(),
             "languages": languages,
         })
