@@ -45,6 +45,7 @@ urlpatterns = [
     # path('api/password/digit/', views.PasswordResetDigitView.as_view()),
     path("api/user/", views.UserView.as_view()),
     path("api/user/password/", views.UserPasswordView.as_view()),
+    path("api/user/github/", views.UserGitHubView.as_view()),
     path("api/user/github/languages/", views.UserGitHubLanguagesView.as_view()),
     path("api/matching/status/", views.MatchingStatusView.as_view()),
     path("api/matching/", views.MatchingCreateView.as_view()),

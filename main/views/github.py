@@ -12,6 +12,7 @@ from main.models import GithubToken, Language, UserRepository
 from main.serializers import (
     GitHubLanguagesResponseSerializer,
     GitHubCallbackErrorSerializer,
+    UserGitHubResponseSerializer,
 )
 
 # Cache duration for repository sync
@@ -110,6 +111,75 @@ class UserGitHubLanguagesView(APIView):
             })
 
         return JsonResponse({
+            "total_repos": user.repositories.count(),
+            "languages": languages,
+        })
+
+
+class UserGitHubView(APIView):
+    """ログインユーザーのGitHub情報と言語統計を取得"""
+
+    @swagger_auto_schema(
+        operation_description="ログインユーザーのGitHub情報と言語統計を取得します。",
+        responses={
+            200: UserGitHubResponseSerializer,
+            400: GitHubCallbackErrorSerializer,
+        },
+    )
+    def get(self, request):
+        user = request.user
+
+        # Get valid GitHub token
+        github_token = GithubToken.objects.get_valid_token(user)
+        if not github_token:
+            return JsonResponse(
+                {"error": "GitHub token not found or expired. Please re-authenticate with GitHub."},
+                status=400,
+            )
+
+        access_token = github_token.access_token
+
+        # Check if we need to sync (cache for 24 hours)
+        last_synced = user.repositories.order_by("-synced_at").values_list("synced_at", flat=True).first()
+        needs_sync = (
+            last_synced is None
+            or last_synced < timezone.now() - timedelta(hours=REPO_SYNC_CACHE_HOURS)
+        )
+
+        if needs_sync:
+            # Fetch all repositories with pagination
+            repos, error = fetch_all_repos(access_token)
+            if error:
+                return JsonResponse({"error": error}, status=400)
+
+            # Sync repositories to database
+            UserRepository.sync_from_github(user, repos, Language)
+
+        # Aggregate language count from saved repositories
+        language_count = {}
+        for repo in user.repositories.select_related("language").all():
+            if repo.language:
+                lang_name = repo.language.name
+                language_count[lang_name] = language_count.get(lang_name, 0) + 1
+
+        # Build languages response
+        total_repos = sum(language_count.values())
+        languages = []
+        for lang_name, count in sorted(language_count.items(), key=lambda x: x[1], reverse=True):
+            language = Language.objects.get(name=lang_name)
+            percentage = (count / total_repos * 100) if total_repos > 0 else 0
+            languages.append({
+                "name": language.name,
+                "icon_url": language.icon_url,
+                "count": count,
+                "percentage": round(percentage, 1),
+            })
+
+        return JsonResponse({
+            "user_id": str(user.id),
+            "user_name": user.name,
+            "github_username": user.name,  # Using name as github_username
+            "github_icon_url": user.github_icon_url,
             "total_repos": user.repositories.count(),
             "languages": languages,
         })
