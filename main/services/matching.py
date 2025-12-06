@@ -8,18 +8,42 @@ from main.models import MatchHistory, User
 MIN_TALK_MINUTES = 7
 MAX_TALK_MINUTES = 15
 
+# Half-life for time decay (in days)
+# After 1 year, weight becomes 0.5; after 2 years, 0.25
+HALF_LIFE_DAYS = 365
+
+
+def calculate_time_decay_weight(pushed_at):
+    """
+    Calculate time decay weight using half-life model.
+    Returns a float between 0 and 1.
+    """
+    if not pushed_at:
+        return 0.1  # Minimum weight for repos without push date
+
+    now = timezone.now()
+    days_since_push = (now - pushed_at).days
+    if days_since_push < 0:
+        days_since_push = 0
+
+    # Half-life decay: weight = 0.5 ^ (days / half_life)
+    weight = 0.5 ** (days_since_push / HALF_LIFE_DAYS)
+    return weight
+
 
 def get_language_vector(user):
     """
     Generate a language vector for a user based on their repositories.
-    Returns a dict: {language_name: count}
+    Uses time decay weighting based on pushed_at date.
+    Returns a dict: {language_name: weighted_score}
     """
-    language_counts = {}
+    language_weights = {}
     for repo in user.repositories.select_related("language").all():
         if repo.language:
             lang_name = repo.language.name
-            language_counts[lang_name] = language_counts.get(lang_name, 0) + 1
-    return language_counts
+            weight = calculate_time_decay_weight(repo.pushed_at)
+            language_weights[lang_name] = language_weights.get(lang_name, 0) + weight
+    return language_weights
 
 
 def calculate_cosine_similarity(vec1, vec2):
