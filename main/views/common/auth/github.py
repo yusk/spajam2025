@@ -145,6 +145,7 @@ class GitHubCallbackView(APIView):
         github_id = github_user.get("id")
         github_login = github_user.get("login")
         github_email = github_user.get("email")
+        github_avatar_url = github_user.get("avatar_url")
 
         # If email is not public, fetch from emails endpoint
         if not github_email:
@@ -180,7 +181,11 @@ class GitHubCallbackView(APIView):
                 name=github_login or f"github_{github_id}",
             )
             user.email_confirmed = True
-            user.save()
+
+        # Update GitHub avatar URL
+        if github_avatar_url:
+            user.github_icon_url = github_avatar_url
+        user.save()
 
         # Save GitHub access token
         GithubToken.update_or_create(user=user, access_token=access_token)

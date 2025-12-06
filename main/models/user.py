@@ -85,6 +85,7 @@ class User(SoftDeletionModel, PermissionsMixin, AbstractBaseUser):
     password = models.CharField(max_length=254)
 
     icon = models.ImageField(upload_to=icon_file_path, null=True, blank=True)
+    github_icon_url = models.URLField(max_length=500, null=True, blank=True)
     device_uuid = models.UUIDField(default=uuid.uuid4)
     email_confirmed = models.BooleanField(default=False)
 

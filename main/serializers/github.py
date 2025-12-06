@@ -32,5 +32,6 @@ class UserGitHubResponseSerializer(serializers.Serializer):
     user_id = serializers.UUIDField()
     user_name = serializers.CharField()
     github_username = serializers.CharField(allow_null=True)
+    github_icon_url = serializers.URLField(allow_null=True)
     total_repos = serializers.IntegerField()
     languages = GitHubLanguageSerializer(many=True)

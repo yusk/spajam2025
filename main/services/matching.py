@@ -101,6 +101,37 @@ def find_best_match(user):
     return best_match, max(best_similarity, 0.0)
 
 
+def get_matched_languages(user1, user2):
+    """
+    Get the common languages between two users with icon URLs.
+    Returns a list of dicts: [{"name": "Python", "icon_url": "..."}]
+    """
+    from main.models import Language
+
+    vec1 = get_language_vector(user1)
+    vec2 = get_language_vector(user2)
+
+    # Find common languages
+    common_langs = set(vec1.keys()) & set(vec2.keys())
+
+    result = []
+    for lang_name in common_langs:
+        try:
+            language = Language.objects.get(name=lang_name)
+            icon_url = language.icon_url
+        except Language.DoesNotExist:
+            icon_url = Language.get_devicon_url(lang_name)
+
+        result.append({
+            "name": lang_name,
+            "icon_url": icon_url,
+        })
+
+    # Sort by name
+    result.sort(key=lambda x: x["name"])
+    return result
+
+
 def create_match(user):
     """
     Create a new match for the user.

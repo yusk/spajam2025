@@ -1,3 +1,4 @@
+from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 
 from main.models import MatchHistory, User
@@ -8,14 +9,22 @@ class MatchPartnerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "name", "icon")
+        fields = ("id", "name", "icon", "github_icon_url")
+
+
+class MatchedLanguageSerializer(serializers.Serializer):
+    """Serializer for matched language info."""
+
+    name = serializers.CharField()
+    icon_url = serializers.CharField()
 
 
 class MatchResultSerializer(serializers.ModelSerializer):
     """Serializer for match result (used in create/status responses)."""
 
     partner = serializers.SerializerMethodField()
-    remaining_seconds = serializers.SerializerMethodField()
+    remaining_seconds = serializers.IntegerField(read_only=True)
+    matched_languages = serializers.SerializerMethodField()
 
     class Meta:
         model = MatchHistory
@@ -26,8 +35,10 @@ class MatchResultSerializer(serializers.ModelSerializer):
             "talk_duration",
             "matched_at",
             "remaining_seconds",
+            "matched_languages",
         )
 
+    @swagger_serializer_method(serializer_or_field=MatchPartnerSerializer)
     def get_partner(self, obj):
         user = self.context.get("user")
         partner = obj.get_partner(user)
@@ -41,6 +52,12 @@ class MatchResultSerializer(serializers.ModelSerializer):
         elapsed = (timezone.now() - obj.matched_at).total_seconds()
         remaining = max(0, obj.talk_duration - elapsed)
         return int(remaining)
+
+    @swagger_serializer_method(serializer_or_field=MatchedLanguageSerializer(many=True))
+    def get_matched_languages(self, obj):
+        from main.services.matching import get_matched_languages
+
+        return get_matched_languages(obj.user1, obj.user2)
 
 
 class MatchHistorySerializer(serializers.ModelSerializer):
@@ -59,6 +76,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
             "ended_at",
         )
 
+    @swagger_serializer_method(serializer_or_field=MatchPartnerSerializer)
     def get_partner(self, obj):
         user = self.context.get("user")
         partner = obj.get_partner(user)

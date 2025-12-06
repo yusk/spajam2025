@@ -127,6 +127,10 @@ class TestMatchingCreateView(MatchingAPITestBase):
         self.assertIn("partner", data)
         self.assertIn("similarity_score", data)
         self.assertIn("talk_duration", data)
+        self.assertIn("matched_languages", data)
+        # Both users have Python, so matched_languages should contain Python
+        lang_names = [lang["name"] for lang in data["matched_languages"]]
+        self.assertIn("Python", lang_names)
 
     def test_return_existing_match(self):
         """既存のアクティブマッチがある場合はそれを返す"""

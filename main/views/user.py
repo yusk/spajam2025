@@ -143,6 +143,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
                 "user_id": str(user.id),
                 "user_name": user.name,
                 "github_username": github_username,
+                "github_icon_url": user.github_icon_url,
                 "total_repos": user.repositories.count(),
                 "languages": languages,
             }
