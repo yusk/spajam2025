@@ -4,6 +4,7 @@ from .github import (  # noqa
     GitHubCallbackErrorSerializer,
     GitHubCallbackResponseSerializer,
     GitHubCallbackUserSerializer,
+    GitHubLanguagesResponseSerializer,
 )
 from .image import ImageSerializer, ReadImageSerializer  # noqa
 from .password import PasswordResetSerializer  # noqa

@@ -133,3 +133,57 @@ class LoginInvalid(models.Model):
             obj.save()
         else:
             cls.objects.create(address=address)
+
+
+class GithubTokenManager(models.Manager):
+    def cleanup_expired(self):
+        """Delete all expired tokens."""
+        return self.filter(expired_at__lt=timezone.now()).delete()
+
+    def get_valid_token(self, user):
+        """Get valid (non-expired) token for user, cleanup expired ones."""
+        self.cleanup_expired()
+        return self.filter(user=user, expired_at__gt=timezone.now()).first()
+
+
+class GithubToken(models.Model):
+    """Store GitHub OAuth access tokens for users."""
+    user = models.OneToOneField("User", on_delete=models.CASCADE, related_name="github_token")
+    access_token = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expired_at = models.DateTimeField()
+
+    objects = GithubTokenManager()
+
+    class Meta:
+        db_table = "main_github_token"
+
+    @classmethod
+    def get_token_expiry(cls):
+        """GitHub tokens expire in 8 hours by default."""
+        return timezone.now() + datetime.timedelta(hours=8)
+
+    @classmethod
+    def update_or_create(cls, user, access_token):
+        """Create or update GitHub token for user."""
+        token, _ = cls.objects.update_or_create(
+            user=user,
+            defaults={
+                "access_token": access_token,
+                "expired_at": cls.get_token_expiry(),
+            }
+        )
+        return token
+
+    def is_expired(self):
+        return timezone.now() > self.expired_at
+
+    def refresh_expiry(self):
+        """Extend token expiry if still valid."""
+        if not self.is_expired():
+            self.expired_at = self.get_token_expiry()
+            self.save()
+
+    def __str__(self):
+        return f"GithubToken(user={self.user_id}, expired={self.is_expired()})"

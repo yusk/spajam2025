@@ -14,3 +14,14 @@ class GitHubCallbackResponseSerializer(serializers.Serializer):
 
 class GitHubCallbackErrorSerializer(serializers.Serializer):
     error = serializers.CharField()
+
+
+class GitHubLanguageSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    count = serializers.IntegerField()
+    percentage = serializers.FloatField()
+
+
+class GitHubLanguagesResponseSerializer(serializers.Serializer):
+    total_repos = serializers.IntegerField()
+    languages = GitHubLanguageSerializer(many=True)
