@@ -9,24 +9,26 @@ from rest_framework_jwt.views import (
     refresh_jwt_token,
     verify_jwt_token,
 )
-from rest_framework_nested.routers import NestedSimpleRouter
 
 from . import views
 from .schema import BothHttpAndHttpsSchemaGenerator
+
+# from rest_framework_nested.routers import NestedSimpleRouter
+
 
 router = DefaultRouter()
 router.APIRootView = APIRootView
 router.register("users", views.UserViewSet, basename="user")
 # router.register("images", views.ImageViewSet, basename="image")
-router.register("capsules", views.CapsuleViewSet, basename="capsule")
+# router.register("capsules", views.CapsuleViewSet, basename="capsule")
 
-capsule_router = NestedSimpleRouter(router, "capsules", lookup="capsule")
-capsule_router.register("images", views.CapsuleImageViewSet, basename="capsule-images")
+# capsule_router = NestedSimpleRouter(router, "capsules", lookup="capsule")
+# capsule_router.register("images", views.CapsuleImageViewSet, basename="capsule-images")
 
 app_name = "main"
 urlpatterns = [
     path("api/", include(router.urls)),
-    path("api/", include(capsule_router.urls)),
+    # path("api/", include(capsule_router.urls)),
     path("api/status/", views.StatusView.as_view()),
     path("api/register/uuid/", views.RegisterUUIDView.as_view()),
     path("api/register/user/", views.RegisterUserView.as_view()),
