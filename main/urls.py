@@ -43,6 +43,7 @@ urlpatterns = [
     # path('api/password/digit/', views.PasswordResetDigitView.as_view()),
     path("api/user/", views.UserView.as_view()),
     path("api/user/password/", views.UserPasswordView.as_view()),
+    path("github/callback", views.GitHubCallbackView.as_view()),
 ]
 
 if settings.DEBUG:
