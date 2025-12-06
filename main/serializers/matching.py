@@ -23,7 +23,7 @@ class MatchResultSerializer(serializers.ModelSerializer):
     """Serializer for match result (used in create/status responses)."""
 
     partner = serializers.SerializerMethodField()
-    remaining_seconds = serializers.IntegerField(read_only=True)
+    remaining_seconds = serializers.SerializerMethodField()
     matched_languages = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,6 +44,7 @@ class MatchResultSerializer(serializers.ModelSerializer):
         partner = obj.get_partner(user)
         return MatchPartnerSerializer(partner).data
 
+    @swagger_serializer_method(serializer_or_field=serializers.IntegerField())
     def get_remaining_seconds(self, obj):
         from django.utils import timezone
 
