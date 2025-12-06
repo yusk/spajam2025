@@ -82,3 +82,4 @@ wscat -c wss://spajam2024.volare.site/ws/capsule/$PK/ -H "Authorization:JWT $TOK
 
 https://github.com/login/oauth/authorize?client_id=Ov23liFu18guxrgPDJsZ&redirect_uri=http://localhost:8000/github/callback&scope=repo,user&state=RANDOM_STRING
 
+https://github.com/login/oauth/authorize?client_id=Ov23liMJblwufji01SnW&redirect_uri=https://spajam2025.volare.site/github/callback&scope=repo,user&state=RANDOM_STRING

@@ -9,10 +9,69 @@ from rest_framework_jwt.settings import api_settings
 
 from main.env import GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRETS
 from main.models import User
-from main.serializers import GitHubCallbackErrorSerializer, GitHubCallbackResponseSerializer
+from main.serializers import (
+    GitHubCallbackErrorSerializer,
+    GitHubCallbackResponseSerializer,
+)
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+
+
+def _fetch_detailed_languages(access_token):
+    """Backup: Fetch detailed language stats per repo (uses more API calls)."""
+    repos_response = requests.get(
+        "https://api.github.com/user/repos",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github.v3+json",
+        },
+        params={
+            "per_page": 100,
+            "sort": "updated",
+        },
+        timeout=30,
+    )
+    if repos_response.status_code == 200:
+        repos = repos_response.json()
+        print("=" * 60)
+        print("Repositories and Languages (detailed)")
+        print("=" * 60)
+
+        total_language_bytes = {}
+
+        for repo in repos:
+            repo_name = repo.get("name")
+            owner = repo.get("owner", {}).get("login")
+
+            languages_response = requests.get(
+                f"https://api.github.com/repos/{owner}/{repo_name}/languages",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/vnd.github.v3+json",
+                },
+                timeout=30,
+            )
+
+            if languages_response.status_code == 200:
+                languages = languages_response.json()
+                print(f"\n[{repo_name}]")
+                if languages:
+                    for lang, bytes_count in languages.items():
+                        print(f"  {lang}: {bytes_count:,} bytes")
+                        total_language_bytes[lang] = total_language_bytes.get(lang, 0) + bytes_count
+                else:
+                    print("  (no languages detected)")
+
+        print("\n" + "=" * 60)
+        print("Total Language Statistics (bytes)")
+        print("=" * 60)
+        sorted_languages = sorted(total_language_bytes.items(), key=lambda x: x[1], reverse=True)
+        total_bytes = sum(total_language_bytes.values())
+        for lang, bytes_count in sorted_languages:
+            percentage = (bytes_count / total_bytes * 100) if total_bytes > 0 else 0
+            print(f"  {lang}: {bytes_count:,} bytes ({percentage:.1f}%)")
+        print("=" * 60)
 
 
 class GitHubCallbackView(APIView):
@@ -111,6 +170,46 @@ class GitHubCallbackView(APIView):
                 {"error": "Could not retrieve email from GitHub"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Fetch all repositories and aggregate languages
+        repos_response = requests.get(
+            "https://api.github.com/user/repos",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+            params={
+                "per_page": 100,
+                "sort": "updated",
+            },
+            timeout=30,
+        )
+        if repos_response.status_code == 200:
+            repos = repos_response.json()
+            print("=" * 60)
+            print("Repositories and Languages")
+            print("=" * 60)
+
+            # Aggregate language count from repo's primary language
+            language_count = {}
+
+            for repo in repos:
+                repo_name = repo.get("name")
+                language = repo.get("language")
+                print(f"  {repo_name}: {language}")
+                if language:
+                    language_count[language] = language_count.get(language, 0) + 1
+
+            # Print aggregated stats
+            print("\n" + "=" * 60)
+            print("Language Statistics (by repo count)")
+            print("=" * 60)
+            sorted_languages = sorted(language_count.items(), key=lambda x: x[1], reverse=True)
+            total_repos = sum(language_count.values())
+            for lang, count in sorted_languages:
+                percentage = (count / total_repos * 100) if total_repos > 0 else 0
+                print(f"  {lang}: {count} repos ({percentage:.1f}%)")
+            print("=" * 60)
 
         # Find or create user
         user = User.objects.filter(email=github_email).first()
