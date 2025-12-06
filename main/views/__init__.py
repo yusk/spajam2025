@@ -8,6 +8,7 @@ from .matching import (  # noqa
     MatchingDebugSimilarityView,
     MatchingEndView,
     MatchingHistoryView,
+    MatchingResetView,
     MatchingStatusView,
 )
 from .user import UserPasswordView, UserView, UserViewSet  # noqa

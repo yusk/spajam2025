@@ -52,6 +52,7 @@ urlpatterns = [
     path("api/matching/end/", views.MatchingEndView.as_view()),
     path("api/matching/history/", views.MatchingHistoryView.as_view()),
     path("api/matching/debug/similarity/", views.MatchingDebugSimilarityView.as_view()),
+    path("api/matching/debug/reset/", views.MatchingResetView.as_view()),
     path("github/callback", views.GitHubCallbackView.as_view()),
 ]
 

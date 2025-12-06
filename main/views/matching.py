@@ -111,6 +111,16 @@ class MatchingHistoryView(APIView):
         return JsonResponse({"history": history_data})
 
 
+class MatchingResetView(APIView):
+    @swagger_auto_schema(
+        operation_description="[デバッグ用] 全ユーザーのマッチング履歴を削除します。",
+        responses={200: MatchEndResponseSerializer},
+    )
+    def delete(self, request):
+        deleted_count, _ = MatchHistory.objects.all().delete()
+        return JsonResponse({"message": f"Deleted {deleted_count} match records"})
+
+
 class MatchingDebugSimilarityView(APIView):
     @swagger_auto_schema(
         operation_description="[デバッグ用] 全ユーザーとの類似度を計算して返します。",
