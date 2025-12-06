@@ -23,6 +23,12 @@ DEVICON_NAME_MAP = {
     "Nix": "nixos",
 }
 
+# Languages that use Simple Icons instead of devicon (due to size issues)
+SIMPLE_ICONS_LANGUAGES = {
+    "CSS": "css3",
+    "HTML": "html5",
+}
+
 
 class Language(models.Model):
     """Programming language with icon information."""
@@ -35,8 +41,14 @@ class Language(models.Model):
         ordering = ["name"]
 
     @classmethod
-    def get_devicon_url(cls, language_name):
-        """Generate devicon URL for a language."""
+    def get_icon_url(cls, language_name):
+        """Generate icon URL for a language."""
+        # Use Simple Icons for problematic languages
+        if language_name in SIMPLE_ICONS_LANGUAGES:
+            slug = SIMPLE_ICONS_LANGUAGES[language_name]
+            return f"https://cdn.simpleicons.org/{slug}"
+
+        # Use devicon for everything else
         slug = DEVICON_NAME_MAP.get(language_name)
         if not slug:
             slug = language_name.lower().replace(" ", "").replace("#", "sharp")
@@ -48,7 +60,7 @@ class Language(models.Model):
         language, created = cls.objects.get_or_create(
             name=language_name,
             defaults={
-                "icon_url": cls.get_devicon_url(language_name),
+                "icon_url": cls.get_icon_url(language_name),
             }
         )
         return language
