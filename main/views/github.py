@@ -33,7 +33,7 @@ def fetch_all_repos(access_token):
     }
 
     while url:
-        response = requests.get(url, headers=headers, params=params, timeout=30)
+        response = requests.get(url, headers=headers, params=params, timeout=500)
         if response.status_code != 200:
             return None, "Failed to fetch repositories from GitHub"
 

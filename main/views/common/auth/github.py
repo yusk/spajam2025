@@ -29,7 +29,7 @@ def _fetch_detailed_languages(access_token):
             "per_page": 100,
             "sort": "updated",
         },
-        timeout=30,
+        timeout=500,
     )
     if repos_response.status_code == 200:
         repos = repos_response.json()
@@ -49,7 +49,7 @@ def _fetch_detailed_languages(access_token):
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/vnd.github.v3+json",
                 },
-                timeout=30,
+                timeout=500,
             )
 
             if languages_response.status_code == 200:
@@ -109,7 +109,7 @@ class GitHubCallbackView(APIView):
                 "code": code,
             },
             headers={"Accept": "application/json"},
-            timeout=30,
+            timeout=500,
         )
 
         if token_response.status_code != 200:
@@ -132,7 +132,7 @@ class GitHubCallbackView(APIView):
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/vnd.github.v3+json",
             },
-            timeout=30,
+            timeout=500,
         )
 
         if user_response.status_code != 200:
@@ -155,7 +155,7 @@ class GitHubCallbackView(APIView):
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/vnd.github.v3+json",
                 },
-                timeout=30,
+                timeout=500,
             )
             if emails_response.status_code == 200:
                 emails = emails_response.json()
@@ -194,11 +194,13 @@ class GitHubCallbackView(APIView):
         payload = jwt_payload_handler(user)
         token = jwt_encode_handler(payload)
 
-        return JsonResponse({
-            "token": token,
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-            },
-        })
+        return JsonResponse(
+            {
+                "token": token,
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "name": user.name,
+                },
+            }
+        )
