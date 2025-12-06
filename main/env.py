@@ -1,6 +1,10 @@
 import os
 
-PRODUCTION_HOST = os.environ.get("PRODUCTION_HOST")
+from dotenv import load_dotenv
+
+load_dotenv()
+
+PRODUCTION_HOST = os.environ.get('PRODUCTION_HOST')
 
 DB_SECRET_KEY = os.environ.get("DB_SECRET_KEY")
 DB_NAME = os.environ.get("DB_NAME")
