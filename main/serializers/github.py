@@ -18,6 +18,7 @@ class GitHubCallbackErrorSerializer(serializers.Serializer):
 
 class GitHubLanguageSerializer(serializers.Serializer):
     name = serializers.CharField()
+    icon_url = serializers.URLField()
     count = serializers.IntegerField()
     percentage = serializers.FloatField()
 

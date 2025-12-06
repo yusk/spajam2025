@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from main.models import GithubToken
+from main.models import GithubToken, Language
 from main.serializers import (
     GitHubLanguagesResponseSerializer,
     GitHubCallbackErrorSerializer,
@@ -80,13 +80,15 @@ class UserGitHubLanguagesView(APIView):
             if language:
                 language_count[language] = language_count.get(language, 0) + 1
 
-        # Build response
+        # Build response with Language model
         total_repos = sum(language_count.values())
         languages = []
-        for lang, count in sorted(language_count.items(), key=lambda x: x[1], reverse=True):
+        for lang_name, count in sorted(language_count.items(), key=lambda x: x[1], reverse=True):
+            language = Language.get_or_create_from_github(lang_name)
             percentage = (count / total_repos * 100) if total_repos > 0 else 0
             languages.append({
-                "name": lang,
+                "name": language.name,
+                "icon_url": language.icon_url,
                 "count": count,
                 "percentage": round(percentage, 1),
             })
