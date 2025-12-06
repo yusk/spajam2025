@@ -7,6 +7,12 @@ from .github import (  # noqa
     GitHubLanguagesResponseSerializer,
 )
 from .image import ImageSerializer, ReadImageSerializer  # noqa
+from .matching import (  # noqa
+    MatchHistorySerializer,
+    MatchPartnerSerializer,
+    MatchResultSerializer,
+    MatchStatusSerializer,
+)
 from .password import PasswordResetSerializer  # noqa
 from .user import (  # noqa
     UserDeleteSerializer,

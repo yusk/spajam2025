@@ -44,6 +44,10 @@ urlpatterns = [
     path("api/user/", views.UserView.as_view()),
     path("api/user/password/", views.UserPasswordView.as_view()),
     path("api/user/github/languages/", views.UserGitHubLanguagesView.as_view()),
+    path("api/matching/status/", views.MatchingStatusView.as_view()),
+    path("api/matching/", views.MatchingCreateView.as_view()),
+    path("api/matching/end/", views.MatchingEndView.as_view()),
+    path("api/matching/history/", views.MatchingHistoryView.as_view()),
     path("github/callback", views.GitHubCallbackView.as_view()),
 ]
 
@@ -52,6 +56,7 @@ if settings.DEBUG:
     urlpatterns.extend(
         [
             path("api/register/dummy/", views.RegisterDummyUserView.as_view()),
+            path("api/matching/debug/similarity/", views.MatchingDebugSimilarityView.as_view()),
         ]
     )
 else:

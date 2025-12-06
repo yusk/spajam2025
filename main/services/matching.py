@@ -1,0 +1,132 @@
+import math
+from django.utils import timezone
+
+from main.models import MatchHistory, User
+
+
+# Talk duration settings (in seconds)
+MIN_TALK_MINUTES = 7
+MAX_TALK_MINUTES = 15
+
+
+def get_language_vector(user):
+    """
+    Generate a language vector for a user based on their repositories.
+    Returns a dict: {language_name: count}
+    """
+    language_counts = {}
+    for repo in user.repositories.select_related("language").all():
+        if repo.language:
+            lang_name = repo.language.name
+            language_counts[lang_name] = language_counts.get(lang_name, 0) + 1
+    return language_counts
+
+
+def calculate_cosine_similarity(vec1, vec2):
+    """
+    Calculate cosine similarity between two language vectors.
+    Returns a float between 0.0 and 1.0.
+    """
+    if not vec1 or not vec2:
+        return 0.0
+
+    # Get all unique languages
+    all_languages = set(vec1.keys()) | set(vec2.keys())
+
+    # Calculate dot product and magnitudes
+    dot_product = 0.0
+    magnitude1 = 0.0
+    magnitude2 = 0.0
+
+    for lang in all_languages:
+        v1 = vec1.get(lang, 0)
+        v2 = vec2.get(lang, 0)
+        dot_product += v1 * v2
+        magnitude1 += v1 * v1
+        magnitude2 += v2 * v2
+
+    magnitude1 = math.sqrt(magnitude1)
+    magnitude2 = math.sqrt(magnitude2)
+
+    if magnitude1 == 0 or magnitude2 == 0:
+        return 0.0
+
+    return dot_product / (magnitude1 * magnitude2)
+
+
+def get_talk_duration(similarity_score):
+    """
+    Convert similarity score to talk duration in seconds.
+    0.0 -> MIN_TALK_MINUTES minutes
+    1.0 -> MAX_TALK_MINUTES minutes
+    """
+    minutes = MIN_TALK_MINUTES + (similarity_score * (MAX_TALK_MINUTES - MIN_TALK_MINUTES))
+    return int(minutes * 60)  # Convert to seconds
+
+
+def find_best_match(user):
+    """
+    Find the best matching partner for a user.
+    Returns (partner_user, similarity_score) or (None, 0.0) if no match found.
+    """
+    # Get users who have been matched with today (to exclude)
+    today_matched_ids = MatchHistory.objects.get_today_matched_users(user)
+
+    # Get free users (excluding current user and already matched users)
+    free_users = MatchHistory.objects.get_free_users(exclude_user=user)
+    free_users = free_users.exclude(id__in=today_matched_ids)
+
+    if not free_users.exists():
+        return None, 0.0
+
+    # Get current user's language vector
+    user_vector = get_language_vector(user)
+
+    if not user_vector:
+        # User has no language data, return first available user with 0 similarity
+        return free_users.first(), 0.0
+
+    # Find the best match
+    best_match = None
+    best_similarity = -1.0
+
+    for candidate in free_users:
+        candidate_vector = get_language_vector(candidate)
+        similarity = calculate_cosine_similarity(user_vector, candidate_vector)
+
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_match = candidate
+
+    return best_match, max(best_similarity, 0.0)
+
+
+def create_match(user):
+    """
+    Create a new match for the user.
+    Returns the MatchHistory object or None if no match possible.
+    """
+    # Check if user already has an active match
+    existing_match = MatchHistory.objects.get_active_match(user)
+    if existing_match:
+        return existing_match
+
+    # Find the best match
+    partner, similarity_score = find_best_match(user)
+
+    if not partner:
+        return None
+
+    # Calculate talk duration
+    talk_duration = get_talk_duration(similarity_score)
+
+    # Create match
+    match = MatchHistory.objects.create(
+        user1=user,
+        user2=partner,
+        similarity_score=similarity_score,
+        talk_duration=talk_duration,
+        event_date=timezone.now().date(),
+    )
+
+    return match
