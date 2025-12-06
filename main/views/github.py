@@ -2,10 +2,9 @@ import re
 from datetime import timedelta
 
 import requests
+from django.http import JsonResponse
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from main.models import GithubToken, Language, UserRepository
@@ -67,9 +66,9 @@ class UserGitHubLanguagesView(APIView):
         # Get valid GitHub token
         github_token = GithubToken.objects.get_valid_token(user)
         if not github_token:
-            return Response(
+            return JsonResponse(
                 {"error": "GitHub token not found or expired. Please re-authenticate with GitHub."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
 
         access_token = github_token.access_token
@@ -85,7 +84,7 @@ class UserGitHubLanguagesView(APIView):
             # Fetch all repositories with pagination
             repos, error = fetch_all_repos(access_token)
             if error:
-                return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({"error": error}, status=400)
 
             # Sync repositories to database
             UserRepository.sync_from_github(user, repos, Language)
@@ -110,7 +109,7 @@ class UserGitHubLanguagesView(APIView):
                 "percentage": round(percentage, 1),
             })
 
-        return Response({
+        return JsonResponse({
             "total_repos": user.repositories.count(),
             "languages": languages,
         })

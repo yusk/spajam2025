@@ -1,9 +1,8 @@
 import requests
+from django.http import JsonResponse
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import status
 from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_jwt.settings import api_settings
 
@@ -96,9 +95,9 @@ class GitHubCallbackView(APIView):
     def get(self, request):
         code = request.query_params.get("code")
         if not code:
-            return Response(
+            return JsonResponse(
                 {"error": "Authorization code not provided"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
 
         # Exchange code for access token
@@ -114,9 +113,9 @@ class GitHubCallbackView(APIView):
         )
 
         if token_response.status_code != 200:
-            return Response(
+            return JsonResponse(
                 {"error": "Failed to obtain access token"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
 
         token_data = token_response.json()
@@ -124,7 +123,7 @@ class GitHubCallbackView(APIView):
 
         if not access_token:
             error = token_data.get("error_description", "Failed to obtain access token")
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": error}, status=400)
 
         # Get user info from GitHub
         user_response = requests.get(
@@ -137,9 +136,9 @@ class GitHubCallbackView(APIView):
         )
 
         if user_response.status_code != 200:
-            return Response(
+            return JsonResponse(
                 {"error": "Failed to fetch user info from GitHub"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
 
         github_user = user_response.json()
@@ -166,9 +165,9 @@ class GitHubCallbackView(APIView):
                 github_email = primary_email or (emails[0]["email"] if emails else None)
 
         if not github_email:
-            return Response(
+            return JsonResponse(
                 {"error": "Could not retrieve email from GitHub"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
 
         # Find or create user
@@ -190,13 +189,11 @@ class GitHubCallbackView(APIView):
         payload = jwt_payload_handler(user)
         token = jwt_encode_handler(payload)
 
-        return Response(
-            {
-                "token": token,
-                "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "name": user.name,
-                },
-            }
-        )
+        return JsonResponse({
+            "token": token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+            },
+        })
