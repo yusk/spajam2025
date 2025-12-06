@@ -70,3 +70,48 @@ class MatchStatusSerializer(serializers.Serializer):
 
     status = serializers.ChoiceField(choices=["free", "talking"])
     match = MatchResultSerializer(required=False, allow_null=True)
+
+
+class MatchEndResponseSerializer(serializers.Serializer):
+    """Serializer for match end response."""
+
+    message = serializers.CharField()
+
+
+class MatchHistoryResponseSerializer(serializers.Serializer):
+    """Serializer for match history response."""
+
+    history = MatchHistorySerializer(many=True)
+
+
+class MatchErrorSerializer(serializers.Serializer):
+    """Serializer for match error response."""
+
+    error = serializers.CharField()
+
+
+class DebugSimilarityUserSerializer(serializers.Serializer):
+    """Serializer for similarity user info."""
+
+    user_id = serializers.UUIDField()
+    user_name = serializers.CharField()
+    similarity_score = serializers.FloatField()
+    similarity_percent = serializers.CharField()
+    talk_duration_seconds = serializers.IntegerField()
+    talk_duration_minutes = serializers.FloatField()
+    languages = serializers.ListField(child=serializers.CharField())
+
+
+class DebugCurrentUserSerializer(serializers.Serializer):
+    """Serializer for debug current user info."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    languages = serializers.DictField(child=serializers.IntegerField())
+
+
+class DebugSimilarityResponseSerializer(serializers.Serializer):
+    """Serializer for debug similarity response."""
+
+    current_user = DebugCurrentUserSerializer()
+    similarities = DebugSimilarityUserSerializer(many=True)

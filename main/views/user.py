@@ -1,20 +1,24 @@
+from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django_filters import rest_framework as filters
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import action
 from rest_framework.generics import GenericAPIView
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from main.helpers.jwt import gen_jwt
-from main.models import User
+from main.models import Language, User
 from main.serializers import (
     NoneSerializer,
     TokenSerializer,
     UserDeleteSerializer,
+    UserGitHubResponseSerializer,
     UserPasswordSerializer,
     UserSerializer,
 )
+from main.services.matching import get_language_vector
 
 
 class UserFilter(filters.FilterSet):
@@ -55,7 +59,9 @@ class UserView(GenericAPIView):
         serializer.save()
         return Response(serializer.data)
 
-    @method_decorator(decorator=swagger_auto_schema(responses={204: NoneSerializer}, request_body=UserDeleteSerializer))
+    @method_decorator(
+        decorator=swagger_auto_schema(responses={204: NoneSerializer}, request_body=UserDeleteSerializer)
+    )
     def delete(self, request):
         serializer = UserDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -93,3 +99,51 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     filter_class = UserFilter
     ordering_fields = ("created_at",)
     ordering = ("created_at",)
+
+    @swagger_auto_schema(
+        operation_description="ユーザーのGitHub情報（言語統計含む）を取得します。",
+        responses={200: UserGitHubResponseSerializer},
+    )
+    @action(detail=True, methods=["get"], url_path="github")
+    def github(self, request, pk=None):
+        """Get user's GitHub information including languages."""
+        user = self.get_object()
+
+        # Get GitHub username from repository full_name (format: "owner/repo")
+        first_repo = user.repositories.first()
+        github_username = None
+        if first_repo and first_repo.full_name:
+            github_username = first_repo.full_name.split("/")[0]
+
+        # Get language vector
+        language_vector = get_language_vector(user)
+
+        # Build language stats with icon URLs
+        languages = []
+        total_count = sum(language_vector.values()) if language_vector else 0
+        for lang_name, count in sorted(language_vector.items(), key=lambda x: x[1], reverse=True):
+            try:
+                language = Language.objects.get(name=lang_name)
+                icon_url = language.icon_url
+            except Language.DoesNotExist:
+                icon_url = Language.get_devicon_url(lang_name)
+
+            percentage = (count / total_count * 100) if total_count > 0 else 0
+            languages.append(
+                {
+                    "name": lang_name,
+                    "icon_url": icon_url,
+                    "count": count,
+                    "percentage": round(percentage, 1),
+                }
+            )
+
+        return JsonResponse(
+            {
+                "user_id": str(user.id),
+                "user_name": user.name,
+                "github_username": github_username,
+                "total_repos": user.repositories.count(),
+                "languages": languages,
+            }
+        )

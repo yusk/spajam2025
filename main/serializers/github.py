@@ -26,3 +26,11 @@ class GitHubLanguageSerializer(serializers.Serializer):
 class GitHubLanguagesResponseSerializer(serializers.Serializer):
     total_repos = serializers.IntegerField()
     languages = GitHubLanguageSerializer(many=True)
+
+
+class UserGitHubResponseSerializer(serializers.Serializer):
+    user_id = serializers.UUIDField()
+    user_name = serializers.CharField()
+    github_username = serializers.CharField(allow_null=True)
+    total_repos = serializers.IntegerField()
+    languages = GitHubLanguageSerializer(many=True)

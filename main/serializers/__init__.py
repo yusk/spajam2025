@@ -5,9 +5,14 @@ from .github import (  # noqa
     GitHubCallbackResponseSerializer,
     GitHubCallbackUserSerializer,
     GitHubLanguagesResponseSerializer,
+    UserGitHubResponseSerializer,
 )
 from .image import ImageSerializer, ReadImageSerializer  # noqa
 from .matching import (  # noqa
+    DebugSimilarityResponseSerializer,
+    MatchEndResponseSerializer,
+    MatchErrorSerializer,
+    MatchHistoryResponseSerializer,
     MatchHistorySerializer,
     MatchPartnerSerializer,
     MatchResultSerializer,

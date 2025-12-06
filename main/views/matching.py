@@ -1,16 +1,18 @@
 from django.db import models
 from django.http import JsonResponse
-from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.views import APIView
 
-from main.models import MatchHistory
+from main.models import MatchHistory, User
 from main.serializers import (
+    DebugSimilarityResponseSerializer,
+    MatchEndResponseSerializer,
+    MatchErrorSerializer,
+    MatchHistoryResponseSerializer,
     MatchHistorySerializer,
     MatchResultSerializer,
     MatchStatusSerializer,
 )
-from main.models import User
 from main.services.matching import (
     calculate_cosine_similarity,
     create_match,
@@ -22,9 +24,7 @@ from main.services.matching import (
 class MatchingStatusView(APIView):
     @swagger_auto_schema(
         operation_description="現在のマッチング状態を取得します。",
-        responses={
-            200: MatchStatusSerializer,
-        },
+        responses={200: MatchStatusSerializer},
     )
     def get(self, request):
         user = request.user
@@ -50,7 +50,7 @@ class MatchingCreateView(APIView):
         operation_description="マッチングを生成します。既存のアクティブなマッチがある場合はそれを返します。",
         responses={
             200: MatchResultSerializer,
-            404: openapi.Response(description="マッチング相手が見つかりません"),
+            404: MatchErrorSerializer,
         },
     )
     def post(self, request):
@@ -71,8 +71,8 @@ class MatchingEndView(APIView):
     @swagger_auto_schema(
         operation_description="現在のマッチングを終了し、free状態に戻ります。",
         responses={
-            200: openapi.Response(description="マッチング終了成功"),
-            404: openapi.Response(description="アクティブなマッチがありません"),
+            200: MatchEndResponseSerializer,
+            404: MatchErrorSerializer,
         },
     )
     def post(self, request):
@@ -92,9 +92,7 @@ class MatchingEndView(APIView):
 class MatchingHistoryView(APIView):
     @swagger_auto_schema(
         operation_description="今日のマッチング履歴を取得します。",
-        responses={
-            200: MatchHistorySerializer(many=True),
-        },
+        responses={200: MatchHistoryResponseSerializer},
     )
     def get(self, request):
         from django.utils import timezone
@@ -118,9 +116,7 @@ class MatchingHistoryView(APIView):
 class MatchingDebugSimilarityView(APIView):
     @swagger_auto_schema(
         operation_description="[デバッグ用] 全ユーザーとの類似度を計算して返します。",
-        responses={
-            200: openapi.Response(description="全ユーザーとの類似度一覧"),
-        },
+        responses={200: DebugSimilarityResponseSerializer},
     )
     def get(self, request):
         user = request.user
