@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from main.models import Language, MatchHistory, User, UserRepository
 from main.services.matching import (
-    calculate_cosine_similarity,
+    calculate_similarity,
     create_match,
     find_best_match,
     get_language_vector,
@@ -27,7 +27,7 @@ class TestGetLanguageVector(TestCase):
         self.assertEqual(vector, {})
 
     def test_single_language(self):
-        """1つの言語を持つ場合"""
+        """1つの言語を持つ場合（pushed_atが今日なら重み≈1.0）"""
         now = timezone.now()
         UserRepository.objects.create(
             user=self.user,
@@ -37,12 +37,14 @@ class TestGetLanguageVector(TestCase):
             full_name="test/repo1",
             created_at=now,
             updated_at=now,
+            pushed_at=now,
         )
         vector = get_language_vector(self.user)
-        self.assertEqual(vector, {"Python": 1})
+        self.assertIn("Python", vector)
+        self.assertAlmostEqual(vector["Python"], 1.0, places=1)
 
     def test_multiple_languages(self):
-        """複数の言語を持つ場合"""
+        """複数の言語を持つ場合（pushed_atが今日なら各≈1.0）"""
         now = timezone.now()
         UserRepository.objects.create(
             user=self.user,
@@ -52,6 +54,7 @@ class TestGetLanguageVector(TestCase):
             full_name="test/repo1",
             created_at=now,
             updated_at=now,
+            pushed_at=now,
         )
         UserRepository.objects.create(
             user=self.user,
@@ -61,6 +64,7 @@ class TestGetLanguageVector(TestCase):
             full_name="test/repo2",
             created_at=now,
             updated_at=now,
+            pushed_at=now,
         )
         UserRepository.objects.create(
             user=self.user,
@@ -70,42 +74,47 @@ class TestGetLanguageVector(TestCase):
             full_name="test/repo3",
             created_at=now,
             updated_at=now,
+            pushed_at=now,
         )
         vector = get_language_vector(self.user)
-        self.assertEqual(vector, {"Python": 2, "JavaScript": 1})
+        self.assertAlmostEqual(vector["Python"], 2.0, places=1)
+        self.assertAlmostEqual(vector["JavaScript"], 1.0, places=1)
 
 
-class TestCosineSimilarity(TestCase):
+class TestSimilarity(TestCase):
     def test_identical_vectors(self):
         """同一ベクトルの類似度は1.0"""
         vec = {"Python": 3, "JavaScript": 2}
-        similarity = calculate_cosine_similarity(vec, vec)
+        similarity = calculate_similarity(vec, vec)
         self.assertAlmostEqual(similarity, 1.0, places=5)
 
     def test_orthogonal_vectors(self):
-        """直交ベクトルの類似度は0.0"""
+        """直交ベクトルの類似度は0.0（共通言語なし）"""
         vec1 = {"Python": 1}
         vec2 = {"JavaScript": 1}
-        similarity = calculate_cosine_similarity(vec1, vec2)
+        similarity = calculate_similarity(vec1, vec2)
         self.assertAlmostEqual(similarity, 0.0, places=5)
 
     def test_partial_overlap(self):
         """部分的に重複するベクトル"""
         vec1 = {"Python": 2, "JavaScript": 1}
         vec2 = {"Python": 1, "TypeScript": 1}
-        similarity = calculate_cosine_similarity(vec1, vec2)
-        # Python: 2*1 = 2, JavaScript: 1*0 = 0, TypeScript: 0*1 = 0
-        # |vec1| = sqrt(4+1) = sqrt(5), |vec2| = sqrt(1+1) = sqrt(2)
-        # similarity = 2 / (sqrt(5) * sqrt(2)) = 2 / sqrt(10) ≈ 0.632
-        self.assertAlmostEqual(similarity, 0.632, places=2)
+        similarity = calculate_similarity(vec1, vec2)
+        # 新しい計算式: sqrt(コサイン類似度 × ユークリッド距離の逆数)
+        # コサイン類似度 ≈ 0.632
+        # ユークリッド距離 = sqrt((2-1)² + (1-0)² + (0-1)²) = sqrt(3) ≈ 1.73
+        # 逆数 = 1 / (1 + 1.73) ≈ 0.366
+        # 最終 = sqrt(0.632 × 0.366) ≈ 0.48
+        self.assertGreater(similarity, 0.3)
+        self.assertLess(similarity, 0.7)
 
     def test_empty_vector(self):
         """空ベクトルの類似度は0.0"""
         vec1 = {}
         vec2 = {"Python": 1}
-        self.assertEqual(calculate_cosine_similarity(vec1, vec2), 0.0)
-        self.assertEqual(calculate_cosine_similarity(vec2, vec1), 0.0)
-        self.assertEqual(calculate_cosine_similarity({}, {}), 0.0)
+        self.assertEqual(calculate_similarity(vec1, vec2), 0.0)
+        self.assertEqual(calculate_similarity(vec2, vec1), 0.0)
+        self.assertEqual(calculate_similarity({}, {}), 0.0)
 
 
 class TestGetTalkDuration(TestCase):

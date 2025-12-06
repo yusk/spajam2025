@@ -14,7 +14,7 @@ from main.serializers import (
     MatchStatusSerializer,
 )
 from main.services.matching import (
-    calculate_cosine_similarity,
+    calculate_similarity,
     create_match,
     get_language_vector,
     get_talk_duration,
@@ -126,7 +126,7 @@ class MatchingDebugSimilarityView(APIView):
         similarities = []
         for other_user in other_users:
             other_vector = get_language_vector(other_user)
-            similarity = calculate_cosine_similarity(user_vector, other_vector)
+            similarity = calculate_similarity(user_vector, other_vector)
             talk_duration = get_talk_duration(similarity)
 
             similarities.append(

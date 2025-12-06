@@ -1,8 +1,8 @@
 import math
+
 from django.utils import timezone
 
 from main.models import MatchHistory, User
-
 
 # Talk duration settings (in seconds)
 MIN_TALK_MINUTES = 7
@@ -46,9 +46,34 @@ def get_language_vector(user):
     return language_weights
 
 
-def calculate_cosine_similarity(vec1, vec2):
+def normalize_vector(vec):
+    """Normalize a vector to proportions (sum to 1.0)."""
+    if not vec:
+        return {}
+    total = sum(vec.values())
+    if total <= 0:
+        return {}
+    return {k: v / total for k, v in vec.items()}
+
+
+def calculate_euclidean_distance(vec1, vec2):
     """
-    Calculate cosine similarity between two language vectors.
+    Calculate Euclidean distance between two language vectors.
+    Returns a float >= 0.
+    """
+    all_languages = set(vec1.keys()) | set(vec2.keys())
+    squared_sum = 0.0
+    for lang in all_languages:
+        v1 = vec1.get(lang, 0)
+        v2 = vec2.get(lang, 0)
+        squared_sum += (v1 - v2) ** 2
+    return math.sqrt(squared_sum)
+
+
+def calculate_similarity(vec1, vec2):
+    """
+    Calculate similarity between two language vectors.
+    Combines cosine similarity (direction) with inverse Euclidean distance (magnitude).
     Returns a float between 0.0 and 1.0.
     """
     if not vec1 or not vec2:
@@ -57,7 +82,7 @@ def calculate_cosine_similarity(vec1, vec2):
     # Get all unique languages
     all_languages = set(vec1.keys()) | set(vec2.keys())
 
-    # Calculate dot product and magnitudes
+    # Calculate dot product and magnitudes for cosine similarity
     dot_product = 0.0
     magnitude1 = 0.0
     magnitude2 = 0.0
@@ -75,7 +100,17 @@ def calculate_cosine_similarity(vec1, vec2):
     if magnitude1 == 0 or magnitude2 == 0:
         return 0.0
 
-    return dot_product / (magnitude1 * magnitude2)
+    # Cosine similarity (0 to 1)
+    cosine_sim = dot_product / (magnitude1 * magnitude2)
+
+    # Inverse Euclidean distance (0 to 1)
+    euclidean_dist = calculate_euclidean_distance(vec1, vec2)
+    inverse_euclidean = 1 / (1 + euclidean_dist)
+
+    # Geometric mean of both metrics (keeps result in 0-1 range)
+    similarity = math.sqrt(cosine_sim * inverse_euclidean)
+
+    return similarity
 
 
 def get_talk_duration(similarity_score):
@@ -116,7 +151,7 @@ def find_best_match(user):
 
     for candidate in free_users:
         candidate_vector = get_language_vector(candidate)
-        similarity = calculate_cosine_similarity(user_vector, candidate_vector)
+        similarity = calculate_similarity(user_vector, candidate_vector)
 
         if similarity > best_similarity:
             best_similarity = similarity
@@ -146,10 +181,12 @@ def get_matched_languages(user1, user2):
         except Language.DoesNotExist:
             icon_url = Language.get_devicon_url(lang_name)
 
-        result.append({
-            "name": lang_name,
-            "icon_url": icon_url,
-        })
+        result.append(
+            {
+                "name": lang_name,
+                "icon_url": icon_url,
+            }
+        )
 
     # Sort by name
     result.sort(key=lambda x: x["name"])
