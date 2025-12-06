@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 
 
 class UserRepository(models.Model):
@@ -44,24 +44,27 @@ class UserRepository(models.Model):
             if language_name:
                 language = Language.get_or_create_from_github(language_name)
 
-            cls.objects.update_or_create(
-                user=user,
-                github_id=github_id,
-                defaults={
-                    "name": repo.get("name", ""),
-                    "full_name": repo.get("full_name", ""),
-                    "language": language,
-                    "created_at": parse_datetime(repo.get("created_at")),
-                    "updated_at": parse_datetime(repo.get("updated_at")),
-                    "pushed_at": parse_datetime(repo.get("pushed_at")) if repo.get("pushed_at") else None,
-                    "stargazers_count": repo.get("stargazers_count", 0),
-                    "forks_count": repo.get("forks_count", 0),
-                    "is_fork": repo.get("fork", False),
-                }
-            )
+            # Use atomic block for each update to avoid SAVEPOINT accumulation
+            with transaction.atomic():
+                cls.objects.update_or_create(
+                    user=user,
+                    github_id=github_id,
+                    defaults={
+                        "name": repo.get("name", ""),
+                        "full_name": repo.get("full_name", ""),
+                        "language": language,
+                        "created_at": parse_datetime(repo.get("created_at")),
+                        "updated_at": parse_datetime(repo.get("updated_at")),
+                        "pushed_at": parse_datetime(repo.get("pushed_at")) if repo.get("pushed_at") else None,
+                        "stargazers_count": repo.get("stargazers_count", 0),
+                        "forks_count": repo.get("forks_count", 0),
+                        "is_fork": repo.get("fork", False),
+                    }
+                )
             synced_ids.append(github_id)
 
         # 削除されたリポジトリを削除
-        cls.objects.filter(user=user).exclude(github_id__in=synced_ids).delete()
+        with transaction.atomic():
+            cls.objects.filter(user=user).exclude(github_id__in=synced_ids).delete()
 
         return synced_ids
