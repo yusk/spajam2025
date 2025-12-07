@@ -167,13 +167,18 @@ class GithubToken(models.Model):
     @classmethod
     def update_or_create(cls, user, access_token):
         """Create or update GitHub token for user."""
-        token, _ = cls.objects.update_or_create(
-            user=user,
-            defaults={
-                "access_token": access_token,
-                "expired_at": cls.get_token_expiry(),
-            }
-        )
+        # Avoid update_or_create to prevent SAVEPOINT issues with MySQL
+        try:
+            token = cls.objects.get(user=user)
+            token.access_token = access_token
+            token.expired_at = cls.get_token_expiry()
+            token.save()
+        except cls.DoesNotExist:
+            token = cls.objects.create(
+                user=user,
+                access_token=access_token,
+                expired_at=cls.get_token_expiry(),
+            )
         return token
 
     def is_expired(self):
