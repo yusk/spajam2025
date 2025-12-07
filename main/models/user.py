@@ -1,21 +1,21 @@
-import os
-import uuid
 import base64
 import io
+import os
+import uuid
 
-from django.db import models
 from django.conf import settings
-from django.utils import timezone
-from django.contrib.auth.base_user import (AbstractBaseUser, BaseUserManager)
+from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
-from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.validators import EmailValidator
+from django.db import models
+from django.utils import timezone
 from rest_framework_jwt.settings import api_settings
 
 from main.env import EMAIL_HOST_USER
 
-from ._base import SoftDeletionModel, SoftDeletionManager, SoftDeletionQuerySet
+from ._base import SoftDeletionManager, SoftDeletionModel, SoftDeletionQuerySet
 
 jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
 jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
@@ -55,33 +55,30 @@ class UserManager(SoftDeletionManager, BaseUserManager):
         return user
 
     def create_guest_user(self, **extra_fields):
-        extra_fields.setdefault('is_staff', False)
-        extra_fields.setdefault('is_superuser', False)
-        if 'email' in extra_fields:
-            email = extra_fields['email']
-            del extra_fields['email']
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
+        if "email" in extra_fields:
+            email = extra_fields["email"]
+            del extra_fields["email"]
         else:
             email = "%s@guest.com" % str(uuid.uuid4())
         return self._create_user(email, **extra_fields)
 
     def create_user(self, email, password, **extra_fields):
-        extra_fields.setdefault('is_staff', False)
-        extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
         return self._create_user(email, password, **extra_fields)
 
 
 class User(SoftDeletionModel, PermissionsMixin, AbstractBaseUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=64, default='', blank=True)
-    email = models.EmailField(max_length=254,
-                              unique=True,
-                              validators=[EmailValidator],
-                              db_index=True)
+    name = models.CharField(max_length=64, default="", blank=True)
+    email = models.EmailField(max_length=254, unique=True, validators=[EmailValidator], db_index=True)
     password = models.CharField(max_length=254)
 
     icon = models.ImageField(upload_to=icon_file_path, null=True, blank=True)
@@ -94,9 +91,9 @@ class User(SoftDeletionModel, PermissionsMixin, AbstractBaseUser):
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
 
     objects = UserManager()
-    EMAIL_FIELD = 'email'
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['name']
+    EMAIL_FIELD = "email"
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["name"]
 
     def delete(self):
         if self.deleted_at:
@@ -108,9 +105,8 @@ class User(SoftDeletionModel, PermissionsMixin, AbstractBaseUser):
 
     def revive(self):
         suffix = f".{self.id}.deleted"
-        if not self.email.endswith(suffix):
-            return 0
-        self.email = self.email[:-len(suffix)]
+        if self.email.endswith(suffix):
+            self.email = self.email[: -len(suffix)]
         self.deleted_at = None
         self.save()
         return 1
@@ -124,11 +120,7 @@ class User(SoftDeletionModel, PermissionsMixin, AbstractBaseUser):
             raise ValidationError({"is_staff": "スーパーユーザーはスタッフでなければなりません。"})
         super().clean(*args, **kwargs)
 
-    def send_email(self,
-                   subject,
-                   content,
-                   from_email=EMAIL_HOST_USER,
-                   fail_silently=False):
+    def send_email(self, subject, content, from_email=EMAIL_HOST_USER, fail_silently=False):
         send_mail(
             subject,
             content,
